@@ -239,4 +239,110 @@
             document.getElementById('modulo-portafolio').classList.add('hidden');
             
             // Remover estilos activos de pestañas
-            document.getElementById('nav-dash').className = "cursor-pointer hover:text-green-400
+            document.getElementById('nav-dash').className = "cursor-pointer hover:text-green-400 pb-1";
+            document.getElementById('nav-calc').className = "cursor-pointer hover:text-green-400 pb-1";
+            document.getElementById('nav-port').className = "cursor-pointer hover:text-green-400 pb-1";
+
+            // Mostrar el seleccionado y activar pestaña
+            if(modulo === 'dashboard') {
+                document.getElementById('modulo-dashboard').classList.remove('hidden');
+                document.getElementById('nav-dash').className = "cursor-pointer text-green-400 border-b-2 border-green-400 pb-1";
+            } else if(modulo === 'cotizador') {
+                document.getElementById('modulo-cotizador').classList.remove('hidden');
+                document.getElementById('nav-calc').className = "cursor-pointer text-green-400 border-b-2 border-green-400 pb-1";
+            } else if(modulo === 'portafolio') {
+                document.getElementById('modulo-portafolio').classList.remove('hidden');
+                document.getElementById('nav-port').className = "cursor-pointer text-green-400 border-b-2 border-green-400 pb-1";
+            }
+        }
+
+        function actualizarVista() {
+            const tipo = document.getElementById('tipoEstructura').value;
+            const badge = document.getElementById('badgeTipo');
+            const txtPostes = document.getElementById('txtPostesCentrales');
+            
+            badge.innerText = "Modelo: " + tipo;
+            if(tipo === 'Tubular') {
+                txtPostes.innerText = "Configuración estructural de luz libre (Sin postes centrales).";
+                badge.className = "bg-blue-500/10 text-blue-400 text-xs px-2 py-1 rounded font-bold border border-blue-500/30";
+            } else {
+                txtPostes.innerText = "Configuración con hileras de postes centrales de Guadua requeridos.";
+                badge.className = "bg-amber-500/10 text-amber-400 text-xs px-2 py-1 rounded font-bold border border-amber-500/30";
+            }
+        }
+
+        function calcularBOM() {
+            const tipo = document.getElementById('tipoEstructura').value;
+            const largo = parseFloat(document.getElementById('largo').value);
+            const ancho = parseFloat(document.getElementById('ancho').value);
+            const distancia = parseFloat(document.getElementById('distancia').value);
+            const modalidad = document.getElementById('modalidad').value;
+
+            if (isNaN(largo) || isNaN(ancho) || isNaN(distancia) || distancia <= 0) {
+                alert('Por favor, ingresa dimensiones válidas.');
+                return;
+            }
+
+            const precios = { tubo: 45000, guadua: 15000, plasticoM2: 3200, carevacaSencilla: 4500, carevacaReforzada: 8500 };
+            const seccionesLaterales = Math.ceil(largo / distancia);
+            const cantidadArcos = seccionesLaterales + 1;
+            const postesLaterales = cantidadArcos * 2;
+            let postesCentrales = (tipo === 'Guadua') ? cantidadArcos * Math.max(1, Math.floor(ancho / 8)) : 0;
+
+            const totalCarevacasReforzadas = seccionesLaterales * 3;
+            const totalCarevacasSencillas = seccionesLaterales * 20;
+            const areaTecho = largo * ancho * 1.05;
+
+            let htmlBOM = '';
+            let costoMateriales = 0;
+            const formatCOP = (num) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(num);
+
+            if (tipo === 'Tubular') {
+                const totalTubos = postesLaterales + (cantidadArcos * (ancho/3));
+                const subTubo = totalTubos * precios.tubo;
+                costoMateriales += subTubo;
+                htmlBOM += generarFila('Tubo Galvanizado 2"x6m', Math.ceil(totalTubos), precios.tubo, subTubo);
+            } else {
+                const totalGuaduas = postesLaterales + postesCentrales + (cantidadArcos * (ancho/3));
+                const subGuadua = totalGuaduas * precios.guadua;
+                costoMateriales += subGuadua;
+                htmlBOM += generarFila('Poste Guadua Tratada 6m', Math.ceil(totalGuaduas), precios.guadua, subGuadua);
+            }
+
+            const subCareS = totalCarevacasSencillas * precios.carevacaSencilla;
+            const subCareR = totalCarevacasReforzadas * precios.carevacaReforzada;
+            costoMateriales += subCareS + subCareR;
+            htmlBOM += generarFila('Carevaca Sencilla', totalCarevacasSencillas, precios.carevacaSencilla, subCareS);
+            htmlBOM += generarFila('Carevaca Reforzada (Calibre grueso)', totalCarevacasReforzadas, precios.carevacaReforzada, subCareR);
+
+            const subPlastico = Math.ceil(areaTecho) * precios.plasticoM2;
+            costoMateriales += subPlastico;
+            htmlBOM += generarFila('Plástico Lechoso UV6+ (m2)', Math.ceil(areaTecho), precios.plasticoM2, subPlastico);
+
+            let costoManoObra = (cantidadArcos * 120000) + (largo * 25000);
+            if (modalidad !== 'Todo Costo') {
+                costoMateriales = 0;
+                htmlBOM += `<tr><td colspan="4" class="p-3 text-center text-amber-400 font-semibold bg-slate-800">Cálculo en 'Solo Mano de Obra'. Materiales por el cliente.</td></tr>`;
+            }
+
+            document.getElementById('tablaResultados').innerHTML = htmlBOM;
+            document.getElementById('tablaFooter').classList.remove('hidden');
+            document.getElementById('totalMateriales').innerText = formatCOP(costoMateriales);
+            document.getElementById('totalManoObra').innerText = formatCOP(costoManoObra);
+            document.getElementById('granTotal').innerText = formatCOP(costoMateriales + costoManoObra);
+        }
+
+        function generarFila(nombre, cantidad, vrUnitario, subtotal) {
+            const formatCOP = (num) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(num);
+            return `
+                <tr class="border-b border-slate-800 hover:bg-slate-800/30 transition">
+                    <td class="p-3 font-medium text-white">${nombre}</td>
+                    <td class="p-3">${cantidad}</td>
+                    <td class="p-3 text-right text-slate-400">${formatCOP(vrUnitario)}</td>
+                    <td class="p-3 text-right font-semibold text-green-400">${formatCOP(subtotal)}</td>
+                </tr>
+            `;
+        }
+    </script>
+</body>
+</html>
